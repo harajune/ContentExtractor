@@ -1,4 +1,4 @@
-
+# encoding: utf8
 from bs4 import BeautifulSoup
 from bs4 import NavigableString
 from bs4.element import Comment
@@ -10,11 +10,78 @@ class ContentExtraction:
     EXCLUDE_TAGS = ("script", "style")
 
     def extract_content(self, root_node):
+
         # calc ctdds
-        pass
+        self.calc_composite_text_density_with_density_sum(root_node)
+
+        threshold_node = max(self._nodes, key=(lambda x: x.ds))
+        
+        # calc threshold
+        for node in self._generator_parent(threshold_node, root_node):
+            if threshold_node.td > node.td:
+                threshold_node = node
+
+            # print("%f, %s" % (threshold_node.td, threshold_node.name))
+
+        self._threshold = threshold_node.td
+
+        self._content_text = ""
+
+        # extract_content
+        self._mark_content_recursively(threshold_node)
+
+        return threshold_node
+
+    def _mark_content_recursively(self, node):
+
+        if node.td >= self._threshold:
+            tag = self._get_max_density_sum_tag(node)
+
+            tag.is_content = True
+
+            for child in node.children:
+                if isinstance(child, NavigableString) and \
+                        not isinstance(child, Comment):
+                    self._content_text += child.strip()
+
+                if isinstance(child, NavigableString) or \
+                        not self._is_target_tag(child):
+                    continue
+
+                self._mark_content_recursively(child)
+
+        else:
+            node.is_content = False
+
+
+    def get_content_text(self):
+        return self._content_text
+
+    def _get_max_density_sum_tag(self, node):
+
+        tmp_node = node
+
+        for child in node.children:
+            if isinstance(child, NavigableString) or \
+                    not self._is_target_tag(child):
+                continue
+
+            if tmp_node.td < child.td:
+                tmp_node = child
+
+        return tmp_node
+
+    def _generator_parent(self, node, root_node):    
+        tmp_node = node
+        while tmp_node != root_node:
+            tmp_node = tmp_node.parent
+            yield tmp_node
 
     def get_nodes(self):
         return self._nodes
+
+    def get_threshold(self):
+        return self._threshold
 
     def calc_composite_text_density_with_density_sum(self, root_node):
 
@@ -36,6 +103,12 @@ class ContentExtraction:
 
     calc_ctdds = calc_composite_text_density_with_density_sum
 
+    @classmethod
+    def _is_target_tag(cls, node):
+        return not (isinstance(node, Comment) or \
+                node.name in cls.EXCLUDE_TAGS)
+
+
     def _calc_ctdds_dfs(self, node):
 
         t = 0
@@ -55,12 +128,13 @@ class ContentExtraction:
 
         else:
             for child in node.children:
+                if not (isinstance(child, NavigableString) or \
+                        self._is_target_tag(child)):
+                    continue
+
                 ctdds = self._calc_ctdds_dfs(child)
 
                 if not isinstance(child, NavigableString):
-                    if isinstance(child, Comment) or \
-                        child.name in self.EXCLUDE_TAGS:
-                        continue
 
                     if child.name == "a":
                         t += ctdds[0] 
@@ -76,9 +150,11 @@ class ContentExtraction:
             td += self._calc_composite_text_density(
                         t, c, lt, lc)
 
-            self._nodes.append((node, ds, td))
+            node.td = td
+            node.ds = ds
+            self._nodes.append(node)
 
-            print("%s %d %d %d %d %f %f" % (node.name, t, c, lt, lc, td, ds))
+            #print("%s %d %d %d %d %f %f" % (node.name, t, c, lt, lc, td, ds))
 
         return (t, c, lt, lc, td, ds)
 

@@ -1,32 +1,18 @@
+# encoding: utf8
 import cetd
+import urllib.request
 from bs4 import BeautifulSoup
 
-html_doc = """
-<html><head><title>The Dormouse's story</title></head>
-<body>
-<p class="title"><b>The Dormouse's story</b></p>
+f = urllib.request.urlopen("http://itpro.nikkeibp.co.jp/article/NEWS/20120116/378602/")
 
-<p class="story">Once upon a time there were three little sisters; and their names were
-<a href="http://example.com/elsie" class="sister" id="link1">Elsie</a>,
-<a href="http://example.com/lacie" class="sister" id="link2">Lacie</a> and
-<a href="http://example.com/tillie" class="sister" id="link3">Tillie</a>;
-and they lived at the bottom of a well.</p>
-<!--
- coommennts!!!!
- -->
+#ff = open("web.html")
+#f = ff.read()
+#ff.close()
 
-<p class="story">...</p>
-</body>
-</html>
-"""
-
-soup = BeautifulSoup(html_doc)
+soup = BeautifulSoup(f)
 
 ce = cetd.ContentExtraction()
-ce.calc_ctdds(soup.find("body"))
+ce.extract_content(soup.find("body"))
 
-nodes = ce.get_nodes()
-
-for n in nodes:
-    print("%f:%s" % (n[1], n[0].name))
+print(ce.get_content_text())
 
